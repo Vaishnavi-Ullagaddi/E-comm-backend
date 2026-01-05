@@ -27,13 +27,18 @@
 
 const express = require("express");
 const cors = require("cors");
+// const sendMail = require("./gmail");
 const bcrypt = require("bcrypt");
+
 const dotenv = require("dotenv");
 require("dotenv").config();
 dotenv.config();
 const jwt = require("jsonwebtoken");
 
 const { rateLimit } = require("express-rate-limit");
+const nodemailer = require("nodemailer");
+const helmet = require("helmet");
+
 const app = express();
 const port = process.env.PORT;
 let secretkey = process.env.SECRETKEY;
@@ -69,7 +74,7 @@ const finalusers = mongoose.model("users", userschema);
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: 5, // Limit each IP to 100 requests per `window` (here, per 15 minutes).
+  limit: 1000, // Limit each IP to 100 requests per `window` (here, per 15 minutes).
   standardHeaders: "draft-8", // draft-6: `RateLimit-*` headers; draft-7 & draft-8: combined `RateLimit` header
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers.
   ipv6Subnet: 56, // Set to 60 or 64 to be less aggressive, or 52 or 48 to be more aggressive
@@ -79,6 +84,7 @@ const limiter = rateLimit({
 //middleware
 app.use(cors());
 app.use(limiter);
+app.use(helmet());
 
 // app.use((req, res, next) => {
 //   console.log("logic verified👍");
@@ -129,11 +135,40 @@ app.post("/products", async (req, res) => {
     const { title, price, image } = req.body;
     await productsmodel.create({ title, price, image });
     res.status(201).json({ msg: "product added successfully" });
+
+    let transporter = await nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
+
+    let mailOptions = {
+      from: process.env.GMAIL_USER,
+      to: "vaishnaviu1509@gmail.com",
+      subject: "PRODUCT REGISTRATION",
+      html: "A new product is added in our store",
+    };
+
+    transporter.sendMail(mailOptions, (error) => {
+      if (error) throw error;
+      console.log("products received  succesffully");
+    });
   } catch (error) {
     res.json({
       msg: error.message,
     });
   }
+});
+
+app.get("/details", (req, res) => {
+  let location = req.query.location;
+  let age = req.query.age;
+  let company = req.query.company;
+  res.send(
+    `this person is living in ${location} and his age is ${age} and he is working in ${company}`
+  );
 });
 
 //api 3 -- fetch data from db and send these data to client
@@ -144,6 +179,12 @@ app.get("/products", async (req, res) => {
   } catch (error) {
     res.json({ msg: error.message });
   }
+});
+
+app.get("/products/:id", async (req, res) => {
+  id = req.params.id;
+  let singleproduct = await productsmodel.findById(id);
+  res.json(singleproduct);
 });
 
 //api4 -- delete a product from db
@@ -181,7 +222,28 @@ app.post("/register", async (req, res) => {
     //hashing password
     let hashedpassword = await bcrypt.hash(password, 10);
     finalusers.create({ email, username, password: hashedpassword });
+    // await sendMail(email, username);
     res.status(201).json({ msg: "user registered successfully" });
+
+    let transporter = await nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
+
+    let mailOptions = {
+      from: process.env.GMAIL_USER,
+      to: email,
+      subject: "ACCOUNT REGISTRATION",
+      html: `Hi ${username} your account is created`,
+    };
+
+    transporter.sendMail(mailOptions, (error) => {
+      if (error) throw error;
+      console.log("email sent succesffully");
+    });
   } catch (error) {
     res.json({
       msg: error.message,
