@@ -40,6 +40,7 @@ const nodemailer = require("nodemailer");
 const helmet = require("helmet");
 
 const app = express();
+app.use(helmet());
 const port = process.env.PORT;
 let secretkey = process.env.SECRETKEY;
 
@@ -80,11 +81,11 @@ const limiter = rateLimit({
   ipv6Subnet: 56, // Set to 60 or 64 to be less aggressive, or 52 or 48 to be more aggressive
   // store: ... , // Redis, Memcached, etc. See below.
 });
+console.log("hi");
 
 //middleware
 app.use(cors());
 app.use(limiter);
-app.use(helmet());
 
 // app.use((req, res, next) => {
 //   console.log("logic verified👍");
